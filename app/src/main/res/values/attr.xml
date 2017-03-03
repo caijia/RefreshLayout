@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="RefreshLayout">
+        <attr name="dragRadio" format="float"/>
+        <attr name="animation_duration" format="integer" />
+        <attr name="complete_delay_duration" format="integer" />
+        <attr name="refreshing_pin_header" format="boolean" />
+    </declare-styleable>
+</resources>
