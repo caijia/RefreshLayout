@@ -6,6 +6,8 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Build;
+import android.support.annotation.LayoutRes;
+import android.support.annotation.Px;
 import android.support.v4.view.NestedScrollingChild;
 import android.support.v4.view.NestedScrollingChildHelper;
 import android.support.v4.view.NestedScrollingParent;
@@ -13,6 +15,7 @@ import android.support.v4.view.NestedScrollingParentHelper;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ScrollerCompat;
 import android.util.AttributeSet;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
@@ -28,8 +31,7 @@ import static android.support.v4.widget.ViewDragHelper.INVALID_POINTER;
 
 public class RefreshLayout extends FrameLayout implements NestedScrollingParent, NestedScrollingChild {
 
-    private static final float DRAG_RADIO = 0.45f;
-    private static final int ANIM_DEFAULT_DURATION = 300;
+    private static final float DRAG_RADIO = 0.5f;
 
     private static final int DEFAULT = 1;
     private static final int PULL_TO_REFRESH = 2;
@@ -40,7 +42,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     public OnScrollListener onScrollListener;
     protected View headerView;
     protected View target;
-    protected RefreshTrigger refreshTrigger;
+    protected RefreshBehavior refreshBehavior;
     private int currentState = DEFAULT;
     private float scrollDistance;
     private float dragRange;
@@ -72,11 +74,6 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     private int completeDelay;
 
     /**
-     * 头部动画执行时间
-     */
-    private int animationDuration;
-
-    /**
      * 拖动的比率
      */
     private float dragRadio;
@@ -85,6 +82,16 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
      * 需要scroll多少距离才能触发刷新(刷新的临界值)
      */
     private int refreshDistance;
+
+    /**
+     * headerView是否在Target的上边,默认为true
+     */
+    private boolean headerFrontTarget;
+
+    /**
+     * headerView layout id;
+     */
+    private int headerViewId;
 
     private OnChildScrollUpCallback childScrollUpCallback;
 
@@ -121,13 +128,12 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             a = context.obtainStyledAttributes(attrs, R.styleable.RefreshLayout);
             dragRadio = a.getFloat(R.styleable.RefreshLayout_dragRadio, DRAG_RADIO);
             dragRadio = clampValue(0, 1, dragRadio);
-            animationDuration = a.getInt(
-                    R.styleable.RefreshLayout_animation_duration, ANIM_DEFAULT_DURATION);
             completeDelay = a.getInt(
-                    R.styleable.RefreshLayout_complete_delay_duration, ANIM_DEFAULT_DELAY);
+                    R.styleable.RefreshLayout_completeDelayDuration, ANIM_DEFAULT_DELAY);
             refreshingPinHeader = a.getBoolean(
-                    R.styleable.RefreshLayout_refreshing_pin_header, false);
-
+                    R.styleable.RefreshLayout_isRefreshingPinHeader, false);
+            headerViewId = a.getResourceId(R.styleable.RefreshLayout_refreshHeaderId, -1);
+            headerFrontTarget = a.getBoolean(R.styleable.RefreshLayout_isHeaderFrontTarget, true);
         } finally {
             if (a != null) {
                 a.recycle();
@@ -156,13 +162,13 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     }
 
     private void onActionDown() {
-        if (refreshTrigger != null) {
-            refreshTrigger.onStart(headerView.getMeasuredHeight());
+        if (refreshBehavior != null) {
+            refreshBehavior.onStart(headerView.getMeasuredHeight());
         }
     }
 
     private void onActionMove(float deltaY) {
-        if (isAnimRunning() || currentState == REFRESH_COMPLETE) {
+        if (isAnimRunning() || currentState == REFRESH_COMPLETE || refreshBehavior == null) {
             return;
         }
 
@@ -174,27 +180,26 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
         scroll();
 
-        if (refreshTrigger != null && currentState != REFRESHING) {
-            refreshTrigger.onMove(scrollDistance, headerView.getMeasuredHeight());
+        if (refreshBehavior != null && currentState != REFRESHING) {
+            refreshBehavior.onMove(scrollDistance, headerView.getMeasuredHeight());
         }
     }
 
     private void scroll() {
-        if (onScrollListener != null) {
-            boolean consume = onScrollListener.onScroll(scrollDistance, headerView, target);
-            if (!consume) {
-                headerView.setTranslationY(scrollDistance);
-                target.setTranslationY(scrollDistance);
-            }
+        if (refreshBehavior == null) {
+            return;
+        }
 
-        } else {
+        if (onScrollListener == null
+                || !onScrollListener.onScroll(scrollDistance, headerView, target)) {
             headerView.setTranslationY(scrollDistance);
             target.setTranslationY(scrollDistance);
         }
     }
 
     private void onActionUpOrCancel() {
-        if (currentState == REFRESHING || currentState == REFRESH_COMPLETE || isAnimRunning()) {
+        if (currentState == REFRESHING || currentState == REFRESH_COMPLETE || isAnimRunning()
+                || refreshBehavior == null) {
             return;
         }
         computeState();
@@ -211,8 +216,8 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     private void stateMapAnimation() {
         switch (currentState) {
             case DEFAULT: {
-                if (refreshTrigger != null) {
-                    refreshTrigger.onReset();
+                if (refreshBehavior != null) {
+                    refreshBehavior.onReset();
                 }
 
                 if (!mScroller.isFinished()) {
@@ -228,18 +233,18 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             }
 
             case PULL_TO_REFRESH: {
-                animator(scrollDistance, 0, animationDuration, 0);
+                animator(scrollDistance, 0, 0);
                 break;
             }
 
             case RELEASE_TO_REFRESH: {
-                animator(scrollDistance, refreshDistance, animationDuration, 0);
+                animator(scrollDistance, refreshDistance, 0);
                 break;
             }
 
             case REFRESHING: {
-                if (refreshTrigger != null) {
-                    refreshTrigger.onRefreshing();
+                if (refreshBehavior != null) {
+                    refreshBehavior.onRefreshing();
                 }
 
                 if (onRefreshListener != null) {
@@ -249,21 +254,35 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             }
 
             case REFRESH_COMPLETE: {
-                if (refreshTrigger != null) {
-                    refreshTrigger.onRefreshComplete();
+                if (refreshBehavior != null) {
+                    refreshBehavior.onRefreshComplete();
                 }
-                animator(scrollDistance, 0, animationDuration, completeDelay);
+                animator(scrollDistance, 0, completeDelay);
                 break;
             }
         }
     }
 
-    private void animator(float start, float end, int duration, int delay) {
+    private void animator(float start, float end, int delay) {
+        if (start <= end || start <= 0) {
+            scrollDistance = 0;
+            scroll();
+            computeState();
+            stateMapAnimation();
+            return;
+        }
+
         if (animator != null && (animator.isStarted() || animator.isRunning())) {
             animator.cancel();
             return;
         }
 
+        int distance = (int) (start - end);
+        int customDuration = 0;
+        if (refreshBehavior != null) {
+            customDuration = refreshBehavior.animationDuration(distance);
+        }
+        int duration = customDuration == 0 ? pxToDp(distance) * 4 : customDuration;
         animator = ValueAnimator.ofFloat(start, end).setDuration(duration);
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
@@ -275,6 +294,10 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         animator.addListener(new SimpleAnimatorListener());
         animator.setStartDelay(delay);
         animator.start();
+    }
+
+    private int pxToDp(@Px int value) {
+        return (int) Math.ceil(value / getResources().getDisplayMetrics().density);
     }
 
     private float clampValue(float min, float max, float value) {
@@ -312,42 +335,52 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        if (refreshBehavior == null) {
+            return;
+        }
+
         int headerHeight = headerView.getMeasuredHeight();
-        int customDragRange = refreshTrigger.dragRange(headerHeight);
+        int customDragRange = refreshBehavior.dragRange(headerHeight);
         dragRange = customDragRange == 0 ? headerHeight * 2 : customDragRange;
-        int distance = refreshTrigger.refreshDistance(headerHeight);
+        int distance = refreshBehavior.refreshDistance(headerHeight);
         refreshDistance = distance <= 0 ? headerHeight : distance;
     }
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        headerView.layout(0, -headerView.getMeasuredHeight(), headerView.getMeasuredWidth(), 0);
-        target.layout(0, 0, target.getMeasuredWidth(), target.getMeasuredHeight());
+        if (refreshBehavior == null) {
+            target.layout(0, 0, target.getMeasuredWidth(), target.getMeasuredHeight());
+
+        } else {
+            if (!refreshBehavior.onLayoutChild(headerView, target)) {
+                headerView.layout(0, -headerView.getMeasuredHeight(), headerView.getMeasuredWidth(), 0);
+                target.layout(0, 0, target.getMeasuredWidth(), target.getMeasuredHeight());
+            }
+        }
     }
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        int childCount = getChildCount();
-        if (childCount != 2) {
-            throw new RuntimeException("only two child");
+        if (getChildCount() != 1) {
+            throw new RuntimeException("only one child");
         }
+        target = getChildAt(0);
 
-        for (int i = 0; i < childCount; i++) {
-            View child = getChildAt(i);
-            if (child instanceof RefreshTrigger) {
-                headerView = child;
+        //add headerView
+        if (headerViewId != -1) {
+            headerView = LayoutInflater.from(getContext()).inflate(headerViewId, this, false);
+            if (headerView == null || !(headerView instanceof RefreshBehavior)) {
+                throw new RuntimeException("header is null or header don't implements RefreshBehavior");
 
             } else {
-                target = child;
+                addView(headerView, headerFrontTarget ? 1 : 0);
             }
         }
 
-        if (headerView == null) {
-            throw new RuntimeException("header must be implements refreshTrigger");
+        if (headerView != null && headerView instanceof RefreshBehavior) {
+            refreshBehavior = (RefreshBehavior) headerView;
         }
-        refreshTrigger = (RefreshTrigger) headerView;
-
     }
 
     private boolean canChildScrollUp() {
@@ -359,7 +392,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        if (!isEnabled() || canChildScrollUp()) {
+        if (!isEnabled() || canChildScrollUp() || refreshBehavior == null) {
             return false;
         }
         addVelocityTracker(ev);
@@ -416,7 +449,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        if (!isEnabled() || canChildScrollUp()) {
+        if (!isEnabled() || canChildScrollUp() || refreshBehavior == null) {
             return false;
         }
         addVelocityTracker(ev);
@@ -556,7 +589,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             stateMapAnimation();
 
         } else {
-            animator(0, refreshDistance, ANIM_DEFAULT_DURATION, ANIM_DEFAULT_DELAY);
+            animator(0, refreshDistance, completeDelay);
         }
     }
 
@@ -698,6 +731,34 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         this.refreshingPinHeader = refreshingPinHeader;
     }
 
+    public void setCompleteDelay(int completeDelay) {
+        this.completeDelay = completeDelay;
+    }
+
+    public void setDragRadio(float dragRadio) {
+        this.dragRadio = clampValue(0, 1, dragRadio);
+    }
+
+    public void setHeaderView(View headerView) {
+        if (headerView != null && headerView instanceof RefreshBehavior) {
+            //remove old header
+            if (this.headerView != null && indexOfChild(this.headerView) != -1) {
+                removeView(this.headerView);
+                refreshBehavior = null;
+                this.headerView = null;
+            }
+            this.headerView = headerView;
+            refreshBehavior = (RefreshBehavior) headerView;
+            addView(headerView, headerFrontTarget ? 1 : 0);
+        }
+    }
+
+    public void setHeaderViewId(@LayoutRes int headerViewId) {
+        View headerView = LayoutInflater.from(getContext())
+                .inflate(headerViewId, this, false);
+        setHeaderView(headerView);
+    }
+
     public interface OnRefreshListener {
 
         void onRefresh();
@@ -716,6 +777,75 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     public interface OnChildScrollUpCallback {
         boolean canChildScrollUp(RefreshLayout parent, View child);
+    }
+
+    public interface RefreshBehavior {
+
+        void onStart(float headerViewHeight);
+
+        void onMove(float scrollTop, float headerViewHeight);
+
+        void onRefreshing();
+
+        void onRefreshComplete();
+
+        void onReset();
+
+        int refreshDistance(int headerViewHeight);
+
+        int dragRange(int headerViewHeight);
+
+        boolean onLayoutChild(View headerView, View target);
+
+        int animationDuration(@Px int distance);
+    }
+
+    public static class SimpleRefreshBehavior implements RefreshBehavior {
+
+        @Override
+        public void onStart(float headerViewHeight) {
+
+        }
+
+        @Override
+        public void onMove(float scrollTop, float headerViewHeight) {
+
+        }
+
+        @Override
+        public void onRefreshing() {
+
+        }
+
+        @Override
+        public void onRefreshComplete() {
+
+        }
+
+        @Override
+        public void onReset() {
+
+        }
+
+        @Override
+        public int refreshDistance(int headerViewHeight) {
+            return 0;
+        }
+
+        @Override
+        public int dragRange(int headerViewHeight) {
+            return 0;
+        }
+
+        @Override
+        public boolean onLayoutChild(View headerView, View target) {
+            return false;
+        }
+
+        @Override
+        public int animationDuration(@Px int distance) {
+            return 0;
+        }
     }
 
     private class SimpleAnimatorListener implements Animator.AnimatorListener {

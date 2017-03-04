@@ -3,8 +3,10 @@ package com.github.refreshlayout.header;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.support.annotation.Px;
 import android.support.annotation.StringRes;
 import android.util.AttributeSet;
+import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
@@ -13,9 +15,9 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.github.refreshlayout.R;
-import com.github.refreshlayout.RefreshTrigger;
+import com.github.refreshlayout.RefreshLayout;
 
-public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshTrigger {
+public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshLayout.RefreshBehavior {
     private ImageView ivArrow;
 
     private ImageView ivSuccess;
@@ -124,5 +126,15 @@ public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshT
     @Override
     public int dragRange(int headerViewHeight) {
         return headerViewHeight * 2;
+    }
+
+    @Override
+    public boolean onLayoutChild(View headerView, View target) {
+        return false;
+    }
+
+    @Override
+    public int animationDuration(@Px int distance) {
+        return 0;
     }
 }

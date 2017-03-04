@@ -24,6 +24,7 @@ public class MainActivity extends AppCompatActivity implements RefreshLayout.OnR
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(new TestPullAdapter());
 
+//        refreshLayout.setHeaderViewId(R.layout.header);
         refreshLayout.setOnRefreshListener(this);
     }
 
