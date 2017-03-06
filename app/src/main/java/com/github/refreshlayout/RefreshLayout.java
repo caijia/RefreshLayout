@@ -93,6 +93,11 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
      */
     private int headerViewId;
 
+    /**
+     * 是否可以刷新
+     */
+    private boolean refreshEnable;
+
     private OnChildScrollUpCallback childScrollUpCallback;
 
     public RefreshLayout(Context context) {
@@ -134,6 +139,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                     R.styleable.RefreshLayout_isRefreshingPinHeader, false);
             headerViewId = a.getResourceId(R.styleable.RefreshLayout_refreshHeaderId, -1);
             headerFrontTarget = a.getBoolean(R.styleable.RefreshLayout_isHeaderFrontTarget, true);
+            refreshEnable = a.getBoolean(R.styleable.RefreshLayout_isRefreshEnable, true);
         } finally {
             if (a != null) {
                 a.recycle();
@@ -163,7 +169,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     private void onActionDown() {
         if (refreshBehavior != null) {
-            refreshBehavior.onStart(headerView.getMeasuredHeight());
+            refreshBehavior.onStart(headerView.getMeasuredHeight(), refreshDistance);
         }
     }
 
@@ -181,7 +187,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         scroll();
 
         if (refreshBehavior != null && currentState != REFRESHING) {
-            refreshBehavior.onMove(scrollDistance, headerView.getMeasuredHeight());
+            refreshBehavior.onMove(scrollDistance, headerView.getMeasuredHeight(), refreshDistance);
         }
     }
 
@@ -199,7 +205,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     private void onActionUpOrCancel() {
         if (currentState == REFRESHING || currentState == REFRESH_COMPLETE || isAnimRunning()
-                || refreshBehavior == null) {
+                || refreshBehavior == null || !refreshEnable) {
             return;
         }
         computeState();
@@ -207,10 +213,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     }
 
     private boolean isAnimRunning() {
-        if (animator != null && (animator.isStarted() || animator.isRunning())) {
-            return true;
-        }
-        return false;
+        return animator != null && (animator.isStarted() || animator.isRunning());
     }
 
     private void stateMapAnimation() {
@@ -227,7 +230,6 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 if (animator != null) {
                     animator.cancel();
                 }
-                activePointerId = INVALID_POINTER;
                 isBeginDragged = false;
                 break;
             }
@@ -392,7 +394,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        if (!isEnabled() || canChildScrollUp() || refreshBehavior == null) {
+        if (!refreshEnable || !isEnabled() || canChildScrollUp() || refreshBehavior == null) {
             return false;
         }
         addVelocityTracker(ev);
@@ -449,7 +451,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        if (!isEnabled() || canChildScrollUp() || refreshBehavior == null) {
+        if (!refreshEnable || !isEnabled() || canChildScrollUp() || refreshBehavior == null) {
             return false;
         }
         addVelocityTracker(ev);
@@ -660,7 +662,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     public void onStopNestedScroll(View target) {
         nestedScrollingParentHelper.onStopNestedScroll(target);
         //fling or scroll,当fling的时候,fling结束时才调用onActionUpOrCancel
-        if (mScroller.isFinished()) {
+        if (mScroller.isFinished() && scrollDistance > 0) {
             onActionUpOrCancel();
         }
         stopNestedScroll();
@@ -673,7 +675,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 mParentOffsetInWindow);
         int dy = dyUnconsumed + mParentOffsetInWindow[1];
         //move down
-        if (dy < 0 && !canChildScrollUp()) {
+        if (dy < 0 && !canChildScrollUp() && refreshEnable) {
             onActionMove(Math.abs(dyUnconsumed));
         }
     }
@@ -759,6 +761,10 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         setHeaderView(headerView);
     }
 
+    public void setRefreshEnable(boolean refreshEnable) {
+        this.refreshEnable = refreshEnable;
+    }
+
     public interface OnRefreshListener {
 
         void onRefresh();
@@ -781,9 +787,9 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     public interface RefreshBehavior {
 
-        void onStart(float headerViewHeight);
+        void onStart(float headerViewHeight, int refreshDistance);
 
-        void onMove(float scrollTop, float headerViewHeight);
+        void onMove(float scrollTop, float headerViewHeight, int refreshDistance);
 
         void onRefreshing();
 
@@ -803,12 +809,12 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     public static class SimpleRefreshBehavior implements RefreshBehavior {
 
         @Override
-        public void onStart(float headerViewHeight) {
+        public void onStart(float headerViewHeight, int refreshDistance) {
 
         }
 
         @Override
-        public void onMove(float scrollTop, float headerViewHeight) {
+        public void onMove(float scrollTop, float headerViewHeight, int refreshDistance) {
 
         }
 
