@@ -6,5 +6,6 @@
         <attr name="isRefreshingPinHeader" format="boolean" />
         <attr name="refreshHeaderId" format="reference" />
         <attr name="isHeaderFrontTarget" format="boolean" />
+        <attr name="isRefreshEnable" format="boolean" />
     </declare-styleable>
 </resources>

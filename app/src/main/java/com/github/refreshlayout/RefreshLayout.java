@@ -13,15 +13,19 @@ import android.support.v4.view.NestedScrollingChildHelper;
 import android.support.v4.view.NestedScrollingParent;
 import android.support.v4.view.NestedScrollingParentHelper;
 import android.support.v4.view.ViewCompat;
+import android.support.v4.widget.NestedScrollView;
 import android.support.v4.widget.ScrollerCompat;
+import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.webkit.WebView;
 import android.widget.AbsListView;
 import android.widget.FrameLayout;
+import android.widget.ScrollView;
 
 import static android.support.v4.widget.ViewDragHelper.INVALID_POINTER;
 
@@ -93,7 +97,14 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
      */
     private int headerViewId;
 
+    /**
+     * 是否可以刷新
+     */
+    private boolean refreshEnable;
+
     private OnChildScrollUpCallback childScrollUpCallback;
+    private FlingRunnable flingRunnable;
+    private OnFlingTargetListener flingTargetListener;
 
     public RefreshLayout(Context context) {
         this(context, null);
@@ -105,6 +116,18 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     public RefreshLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        init(context);
+        getAttributes(context, attrs);
+    }
+
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    public RefreshLayout(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+        super(context, attrs, defStyleAttr, defStyleRes);
+        init(context);
+        getAttributes(context, attrs);
+    }
+
+    private void init(Context context) {
         ViewConfiguration configuration = ViewConfiguration.get(context);
         touchSlop = configuration.getScaledTouchSlop();
         minVelocity = configuration.getScaledMinimumFlingVelocity();
@@ -113,13 +136,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         nestedScrollingChildHelper = new NestedScrollingChildHelper(this);
         nestedScrollingParentHelper = new NestedScrollingParentHelper(this);
         mScroller = ScrollerCompat.create(context);
-        getAttributes(context, attrs);
-    }
-
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    public RefreshLayout(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
-        getAttributes(context, attrs);
+        flingRunnable = new FlingRunnable();
     }
 
     private void getAttributes(Context context, AttributeSet attrs) {
@@ -134,6 +151,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                     R.styleable.RefreshLayout_isRefreshingPinHeader, false);
             headerViewId = a.getResourceId(R.styleable.RefreshLayout_refreshHeaderId, -1);
             headerFrontTarget = a.getBoolean(R.styleable.RefreshLayout_isHeaderFrontTarget, true);
+            refreshEnable = a.getBoolean(R.styleable.RefreshLayout_isRefreshEnable, true);
         } finally {
             if (a != null) {
                 a.recycle();
@@ -163,7 +181,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     private void onActionDown() {
         if (refreshBehavior != null) {
-            refreshBehavior.onStart(headerView.getMeasuredHeight());
+            refreshBehavior.onStart(headerView.getMeasuredHeight(), refreshDistance);
         }
     }
 
@@ -181,7 +199,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         scroll();
 
         if (refreshBehavior != null && currentState != REFRESHING) {
-            refreshBehavior.onMove(scrollDistance, headerView.getMeasuredHeight());
+            refreshBehavior.onMove(scrollDistance, headerView.getMeasuredHeight(), refreshDistance);
         }
     }
 
@@ -199,7 +217,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     private void onActionUpOrCancel() {
         if (currentState == REFRESHING || currentState == REFRESH_COMPLETE || isAnimRunning()
-                || refreshBehavior == null) {
+                || refreshBehavior == null || !refreshEnable) {
             return;
         }
         computeState();
@@ -207,10 +225,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     }
 
     private boolean isAnimRunning() {
-        if (animator != null && (animator.isStarted() || animator.isRunning())) {
-            return true;
-        }
-        return false;
+        return animator != null && (animator.isStarted() || animator.isRunning());
     }
 
     private void stateMapAnimation() {
@@ -227,7 +242,6 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 if (animator != null) {
                     animator.cancel();
                 }
-                activePointerId = INVALID_POINTER;
                 isBeginDragged = false;
                 break;
             }
@@ -392,7 +406,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        if (!isEnabled() || canChildScrollUp() || refreshBehavior == null) {
+        if (!refreshEnable || !isEnabled() || canChildScrollUp() || refreshBehavior == null) {
             return false;
         }
         addVelocityTracker(ev);
@@ -449,7 +463,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        if (!isEnabled() || canChildScrollUp() || refreshBehavior == null) {
+        if (!refreshEnable || !isEnabled() || canChildScrollUp() || refreshBehavior == null) {
             return false;
         }
         addVelocityTracker(ev);
@@ -529,6 +543,10 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         return true;
     }
 
+    /**
+     * @param velocityY
+     * @see FlingRunnable
+     */
     private void fling(int velocityY) {
         int startY = (int) (refreshDistance - scrollDistance);
         oldCurrY = startY;
@@ -538,21 +556,8 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 0, 0, // x
                 0, refreshDistance); //y
         if (mScroller.computeScrollOffset()) {
-            ViewCompat.postInvalidateOnAnimation(this);
-        }
-    }
-
-    @Override
-    public void computeScroll() {
-        super.computeScroll();
-        if (mScroller.computeScrollOffset()) {
-            int dy = oldCurrY - mScroller.getCurrY();
-            onActionMove(dy);
-            oldCurrY = mScroller.getCurrY();
-            ViewCompat.postInvalidateOnAnimation(this);
-
-        } else {
-            oldCurrY = 0;
+            flingRunnable.setDirection(velocityY > 0 ? FlingRunnable.UP : FlingRunnable.DOWN);
+            ViewCompat.postOnAnimation(this, flingRunnable);
         }
     }
 
@@ -660,7 +665,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     public void onStopNestedScroll(View target) {
         nestedScrollingParentHelper.onStopNestedScroll(target);
         //fling or scroll,当fling的时候,fling结束时才调用onActionUpOrCancel
-        if (mScroller.isFinished()) {
+        if (mScroller.isFinished() && scrollDistance > 0) {
             onActionUpOrCancel();
         }
         stopNestedScroll();
@@ -673,7 +678,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 mParentOffsetInWindow);
         int dy = dyUnconsumed + mParentOffsetInWindow[1];
         //move down
-        if (dy < 0 && !canChildScrollUp()) {
+        if (dy < 0 && !canChildScrollUp() && refreshEnable) {
             onActionMove(Math.abs(dyUnconsumed));
         }
     }
@@ -759,6 +764,14 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         setHeaderView(headerView);
     }
 
+    public void setRefreshEnable(boolean refreshEnable) {
+        this.refreshEnable = refreshEnable;
+    }
+
+    public void setOnFlingTargetListener(OnFlingTargetListener onFlingTargetListener) {
+        this.flingTargetListener = onFlingTargetListener;
+    }
+
     public interface OnRefreshListener {
 
         void onRefresh();
@@ -781,9 +794,9 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     public interface RefreshBehavior {
 
-        void onStart(float headerViewHeight);
+        void onStart(float headerViewHeight, int refreshDistance);
 
-        void onMove(float scrollTop, float headerViewHeight);
+        void onMove(float scrollTop, float headerViewHeight, int refreshDistance);
 
         void onRefreshing();
 
@@ -800,15 +813,30 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         int animationDuration(@Px int distance);
     }
 
+    public interface OnFlingTargetListener {
+
+        /**
+         * 当正在刷新时,向上fling,关闭头部后,target有时需要有fling行为
+         * <p>如果target 是{@link RecyclerView},{@link ScrollView},{@link NestedScrollView},
+         * {@link WebView},{@link AbsListView (api >= 21)}不需要实现fling方法</p>
+         *
+         * @param target   需要fling的View
+         * @param velocity 速度
+         * @return true表示消费了velocity
+         */
+        boolean fling(View target, int velocity);
+
+    }
+
     public static class SimpleRefreshBehavior implements RefreshBehavior {
 
         @Override
-        public void onStart(float headerViewHeight) {
+        public void onStart(float headerViewHeight, int refreshDistance) {
 
         }
 
         @Override
-        public void onMove(float scrollTop, float headerViewHeight) {
+        public void onMove(float scrollTop, float headerViewHeight, int refreshDistance) {
 
         }
 
@@ -868,6 +896,60 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         @Override
         public void onAnimationRepeat(Animator animation) {
 
+        }
+    }
+
+    private class FlingRunnable implements Runnable {
+
+        static final int DOWN = 1;
+        static final int UP = -1;
+        private int direction;
+
+        void setDirection(int direction) {
+            this.direction = direction;
+        }
+
+        @Override
+        public void run() {
+            if (mScroller.computeScrollOffset()) {
+                int dy = oldCurrY - mScroller.getCurrY();
+                onActionMove(dy);
+                oldCurrY = mScroller.getCurrY();
+                ViewCompat.postOnAnimation(RefreshLayout.this, this);
+
+            } else {
+                oldCurrY = 0;
+                if (direction != UP) {
+                    return;
+                }
+                int currVelocity = Math.round(mScroller.getCurrVelocity());
+                if (flingTargetListener != null && flingTargetListener.fling(target, currVelocity)) {
+                    return;
+                }
+
+                if (target instanceof RecyclerView) {
+                    RecyclerView recyclerView = (RecyclerView) target;
+                    recyclerView.fling(0, currVelocity);
+
+                } else if (target instanceof AbsListView) {
+                    AbsListView absListView = (AbsListView) target;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        absListView.fling(currVelocity);
+                    }
+
+                } else if (target instanceof ScrollView) {
+                    ScrollView scrollView = (ScrollView) target;
+                    scrollView.fling((int) mScroller.getCurrVelocity());
+
+                } else if (target instanceof NestedScrollView) {
+                    NestedScrollView scrollView = (NestedScrollView) target;
+                    scrollView.fling(currVelocity);
+
+                } else if (target instanceof WebView) {
+                    WebView webView = (WebView) target;
+                    webView.flingScroll(0, currVelocity);
+                }
+            }
         }
     }
 }

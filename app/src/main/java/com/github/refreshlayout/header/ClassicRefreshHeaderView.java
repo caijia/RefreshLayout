@@ -59,16 +59,16 @@ public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshL
     }
 
     @Override
-    public void onStart(float headerViewHeight) {
+    public void onStart(float headerViewHeight,int refreshDistance) {
         progressBar.setIndeterminate(false);
     }
 
     @Override
-    public void onMove(float moved, float headerViewHeight) {
+    public void onMove(float moved, float headerViewHeight,int refreshDistance) {
         ivArrow.setVisibility(VISIBLE);
         progressBar.setVisibility(GONE);
         ivSuccess.setVisibility(GONE);
-        if (moved <= headerViewHeight) {
+        if (moved <= refreshDistance) {
             if (rotated) {
                 ivArrow.clearAnimation();
                 ivArrow.startAnimation(rotateDown);
