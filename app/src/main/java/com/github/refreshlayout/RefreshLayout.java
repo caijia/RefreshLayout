@@ -35,7 +35,7 @@ import static android.support.v4.widget.ViewDragHelper.INVALID_POINTER;
 
 public class RefreshLayout extends FrameLayout implements NestedScrollingParent, NestedScrollingChild {
 
-    private static final float DRAG_RADIO = 0.5f;
+    private static final float DRAG_RADIO = 0.4f;
 
     private static final int DEFAULT = 1;
     private static final int PULL_TO_REFRESH = 2;
@@ -208,10 +208,11 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             return;
         }
 
+        int scrollY = Math.round(scrollDistance);
         if (onScrollListener == null
-                || !onScrollListener.onScroll(scrollDistance, headerView, target)) {
-            headerView.setTranslationY(scrollDistance);
-            target.setTranslationY(scrollDistance);
+                || !onScrollListener.onScroll(scrollY, headerView, target)) {
+            headerView.setTranslationY(scrollY);
+            target.setTranslationY(scrollY);
         }
     }
 
@@ -433,14 +434,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 float x = ev.getX(index);
                 float y = ev.getY(index);
 
-                float diffX = x - initialMotionX;
-                float diffY = y - initialMotionY;
-
-                if (!isBeginDragged && Math.abs(diffY) > Math.abs(diffX)
-                        && (diffY > touchSlop  //move down
-                        || (!refreshingPinHeader && scrollDistance > 0 && -diffY > touchSlop))) {
-                    isBeginDragged = true;
-                }
+                startDragging(x, y);
 
                 lastTouchY = y;
                 break;
@@ -459,6 +453,26 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 break;
         }
         return isBeginDragged;
+    }
+
+    private float beginDragDeltaY;
+
+    private void startDragging(float x, float y) {
+        float diffX = x - initialMotionX;
+        float diffY = y - initialMotionY;
+        if (!isBeginDragged) {
+            if (diffY > touchSlop) {
+                isBeginDragged = true;
+                initialMotionY += touchSlop;
+                beginDragDeltaY = diffY - touchSlop;
+            }
+
+            if (!refreshingPinHeader && scrollDistance > 0 && -diffY > touchSlop) {
+                isBeginDragged = true;
+                initialMotionY -= touchSlop;
+                beginDragDeltaY = diffY + touchSlop;
+            }
+        }
     }
 
     @Override
@@ -489,21 +503,15 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 float x = ev.getX(index);
                 float y = ev.getY(index);
 
-                float deltaY = y - lastTouchY;
+                startDragging(x, y);
 
-                float diffX = x - initialMotionX;
-                float diffY = y - initialMotionY;
+                float deltaY;
+                if (beginDragDeltaY != 0) {
+                    deltaY = beginDragDeltaY;
+                    beginDragDeltaY = 0;
 
-                if (!isBeginDragged && Math.abs(diffY) > Math.abs(diffX)) {
-                    if (diffY > touchSlop) {
-                        isBeginDragged = true;
-                        deltaY = diffY - touchSlop;
-                    }
-
-                    if (!refreshingPinHeader && scrollDistance > 0 && -diffY > touchSlop) {
-                        isBeginDragged = true;
-                        deltaY = diffY + touchSlop;
-                    }
+                }else{
+                    deltaY = y - lastTouchY;
                 }
 
                 if (isBeginDragged) {
@@ -548,7 +556,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
      * @see FlingRunnable
      */
     private void fling(int velocityY) {
-        int startY = (int) (refreshDistance - scrollDistance);
+        int startY = Math.round(refreshDistance - scrollDistance);
         oldCurrY = startY;
         mScroller.fling(
                 0, startY, //init value
@@ -678,7 +686,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 mParentOffsetInWindow);
         int dy = dyUnconsumed + mParentOffsetInWindow[1];
         //move down
-        if (dy < 0 && !canChildScrollUp() && refreshEnable) {
+        if (dy < 0 && !canChildScrollUp() && refreshEnable ) {
             onActionMove(Math.abs(dyUnconsumed));
         }
     }
@@ -687,12 +695,11 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     public void onNestedPreScroll(View target, int dx, int dy, int[] consumed) {
         if (dy > 0 && scrollDistance > 0) {
             if (dy > scrollDistance) {
-                consumed[1] = (int) (dy - scrollDistance);
+                consumed[1] = Math.round(scrollDistance);
 
             } else {
                 consumed[1] = dy;
             }
-
             onActionMove(-consumed[1]);
         }
 
@@ -785,7 +792,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
          * @param target     内容View
          * @return true 表示不使用内部的滑动(headerView ,target)的逻辑
          */
-        boolean onScroll(float scrollY, View headerView, View target);
+        boolean onScroll(int scrollY, View headerView, View target);
     }
 
     public interface OnChildScrollUpCallback {
