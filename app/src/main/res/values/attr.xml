@@ -2,7 +2,7 @@
 <resources>
     <declare-styleable name="RefreshLayout">
         <attr name="dragRadio" format="float"/>
-        <attr name="completeDelayDuration" format="integer" />
+        <attr name="closeHeaderDelay" format="integer" />
         <attr name="isRefreshingPinHeader" format="boolean" />
         <attr name="refreshHeaderId" format="reference" />
         <attr name="isHeaderFrontTarget" format="boolean" />

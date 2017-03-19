@@ -56,6 +56,6 @@ public class PullRecyclerViewFragment extends Fragment implements RefreshLayout.
             public void run() {
                 refreshLayout.setRefreshing(false);
             }
-        }, 2000);
+        }, 4000);
     }
 }
