@@ -7,9 +7,12 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 
 import com.github.refreshlayout.R;
 import com.github.refreshlayout.RefreshLayout;
+
+import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
 /**
  * Created by cai.jia on 2017/3/6 0006
@@ -36,10 +39,15 @@ public class PullScrollViewFragment extends Fragment implements RefreshLayout.On
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         if (view != null) {
-            refreshLayout = (RefreshLayout) view.findViewById(R.id.refresh_layout);
+            LinearLayout rootLl= (LinearLayout) view.findViewById(R.id.root_ll);
 
-//        refreshLayout.setHeaderViewId(R.layout.header);
+            refreshLayout = new RefreshLayout(getContext());
+            refreshLayout.setLayoutParams(new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+            refreshLayout.setHeaderViewId(R.layout.header);
+            refreshLayout.setTargetViewId(R.layout.view_scroll_view);
             refreshLayout.setOnRefreshListener(this);
+
+            rootLl.addView(refreshLayout);
         }
     }
 

@@ -45,7 +45,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     private static final int CLOSE_HEADER_DELAY = 500;
     public OnScrollListener onScrollListener;
     protected View headerView;
-    protected View target;
+    protected View targetView;
     protected RefreshBehavior refreshBehavior;
     private int currentState = DEFAULT;
     private float overScrollTop;
@@ -206,15 +206,15 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     }
 
     private void scroll() {
-        if (!hasHeader()) {
+        if (!hasHeader() || !hasTargetView()) {
             return;
         }
 
         int scrollY = Math.round(overScrollTop);
         if (onScrollListener == null
-                || !onScrollListener.onScroll(scrollY, headerView, target)) {
+                || !onScrollListener.onScroll(scrollY, headerView, targetView)) {
             headerView.setTranslationY(scrollY);
-            target.setTranslationY(scrollY);
+            targetView.setTranslationY(scrollY);
         }
     }
 
@@ -341,8 +341,9 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         // if this is a List < L or another view that doesn't support nested
         // scrolling, ignore this request so that the vertical scroll event
         // isn't stolen
-        if ((android.os.Build.VERSION.SDK_INT < 21 && target instanceof AbsListView)
-                || (target != null && !ViewCompat.isNestedScrollingEnabled(target))) {
+        if (hasTargetView() && (android.os.Build.VERSION.SDK_INT < 21
+                && targetView instanceof AbsListView)
+                || (targetView != null && !ViewCompat.isNestedScrollingEnabled(targetView))) {
             // Nope.
         } else {
             super.requestDisallowInterceptTouchEvent(b);
@@ -369,17 +370,17 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             super.onLayout(changed, l, t, r, b);
 
         } else {
-            if (!refreshBehavior.onLayoutChild(headerView, target)) {
-                FrameLayout.LayoutParams lp = (LayoutParams) target.getLayoutParams();
-                int width = target.getMeasuredWidth();
+            if (hasTargetView() && !refreshBehavior.onLayoutChild(headerView, targetView)) {
+                FrameLayout.LayoutParams lp = (LayoutParams) targetView.getLayoutParams();
+                int width = targetView.getMeasuredWidth();
                 int left = getPaddingLeft() + lp.leftMargin;
                 int right = left + width;
 
                 int targetTop = getPaddingTop() + lp.topMargin;
-                int targetBottom = targetTop + target.getMeasuredHeight();
+                int targetBottom = targetTop + targetView.getMeasuredHeight();
 
                 headerView.layout(left, -headerView.getMeasuredHeight(), right, 0);
-                target.layout(left, targetTop, right, targetBottom);
+                targetView.layout(left, targetTop, right, targetBottom);
             }
         }
     }
@@ -390,7 +391,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         if (getChildCount() != 1) {
             throw new RuntimeException("only one child");
         }
-        target = getChildAt(0);
+        targetView = getChildAt(0);
 
         //add headerView
         if (headerViewId != -1) {
@@ -409,10 +410,13 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     }
 
     private boolean canChildScrollUp() {
-        if (childScrollUpCallback != null) {
-            return childScrollUpCallback.canChildScrollUp(this, target);
+        if (!hasTargetView()) {
+            return false;
         }
-        return ViewCompat.canScrollVertically(target, -1);
+        if (childScrollUpCallback != null) {
+            return childScrollUpCallback.canChildScrollUp(this, targetView);
+        }
+        return ViewCompat.canScrollVertically(targetView, -1);
     }
 
     @Override
@@ -468,7 +472,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     private void startDragging(float x, float y) {
         float diffX = x - initialMotionX;
         float diffY = y - initialMotionY;
-        if (!isBeginDragged&&Math.abs(diffY)>Math.abs(diffX)) {
+        if (!isBeginDragged && Math.abs(diffY) > Math.abs(diffX)) {
             if (diffY > touchSlop) {
                 isBeginDragged = true;
                 initialMotionY += touchSlop;
@@ -585,6 +589,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
     /**
      * target滑动到顶部,然后在惯性滑动头部
+     *
      * @param velocityY
      */
     private void targetFlingToTop(int velocityY) {
@@ -801,8 +806,32 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             }
             this.headerView = headerView;
             refreshBehavior = (RefreshBehavior) headerView;
-            addView(headerView, headerFrontTarget ? 1 : 0);
+            addView(headerView, headerFrontTarget ? getChildCount() : 0);
         }
+    }
+
+    private boolean hasTargetView() {
+        return targetView != null;
+    }
+
+    public void setTargetView(View targetView) {
+        if (targetView == null) {
+            return;
+        }
+
+        if (this.targetView != null && indexOfChild(this.targetView) != -1) {
+            //remove old targetView
+            removeView(this.targetView);
+        }
+
+        this.targetView = targetView;
+        addView(this.targetView, headerFrontTarget ? 0 : getChildCount());
+    }
+
+    public void setTargetViewId(@LayoutRes int targetViewId) {
+        View targetView = LayoutInflater.from(getContext())
+                .inflate(targetViewId, this, false);
+        setTargetView(targetView);
     }
 
     public void setHeaderViewId(@LayoutRes int headerViewId) {
@@ -820,30 +849,34 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     }
 
     private void flingTarget(int currVelocity) {
-        if (flingTargetListener != null && flingTargetListener.fling(target, currVelocity)) {
+        if (!hasTargetView()) {
             return;
         }
 
-        if (target instanceof RecyclerView) {
-            RecyclerView recyclerView = (RecyclerView) target;
+        if (flingTargetListener != null && flingTargetListener.fling(targetView, currVelocity)) {
+            return;
+        }
+
+        if (targetView instanceof RecyclerView) {
+            RecyclerView recyclerView = (RecyclerView) targetView;
             recyclerView.fling(0, currVelocity);
 
-        } else if (target instanceof AbsListView) {
-            AbsListView absListView = (AbsListView) target;
+        } else if (targetView instanceof AbsListView) {
+            AbsListView absListView = (AbsListView) targetView;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 absListView.fling(currVelocity);
             }
 
-        } else if (target instanceof ScrollView) {
-            ScrollView scrollView = (ScrollView) target;
+        } else if (targetView instanceof ScrollView) {
+            ScrollView scrollView = (ScrollView) targetView;
             scrollView.fling((int) mScroller.getCurrVelocity());
 
-        } else if (target instanceof NestedScrollView) {
-            NestedScrollView scrollView = (NestedScrollView) target;
+        } else if (targetView instanceof NestedScrollView) {
+            NestedScrollView scrollView = (NestedScrollView) targetView;
             scrollView.fling(currVelocity);
 
-        } else if (target instanceof WebView) {
-            WebView webView = (WebView) target;
+        } else if (targetView instanceof WebView) {
+            WebView webView = (WebView) targetView;
             webView.flingScroll(0, currVelocity);
         }
     }
@@ -859,7 +892,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
          * @param scrollY    滑动和fling的距离
          * @param headerView 头部View
          * @param target     内容View
-         * @return true 表示不使用内部的滑动(headerView ,target)的逻辑
+         * @return true 表示不使用内部的滑动(headerView ,targetView)的逻辑
          */
         boolean onScroll(int scrollY, View headerView, View target);
     }
@@ -1036,7 +1069,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                             reset();
                             mScroller.abortAnimation();
 
-                        }else{
+                        } else {
                             ViewCompat.postOnAnimation(RefreshLayout.this, this);
                         }
                         break;
