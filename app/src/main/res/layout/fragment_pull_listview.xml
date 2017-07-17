@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.github.refreshlayout.RefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.caijia.refreshlayout.RefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/refresh_layout"
@@ -17,4 +17,4 @@
         android:overScrollMode="never"
         android:background="@android:color/white" />
 
-</com.github.refreshlayout.RefreshLayout>
+</com.caijia.refreshlayout.RefreshLayout>

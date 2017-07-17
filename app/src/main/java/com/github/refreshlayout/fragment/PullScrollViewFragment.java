@@ -10,7 +10,7 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
 import com.github.refreshlayout.R;
-import com.github.refreshlayout.RefreshLayout;
+import com.caijia.refreshlayout.RefreshLayout;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 

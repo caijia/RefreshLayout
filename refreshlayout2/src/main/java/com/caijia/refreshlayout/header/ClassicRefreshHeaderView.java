@@ -1,4 +1,4 @@
-package com.github.refreshlayout.header;
+package com.caijia.refreshlayout.header;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -14,22 +14,17 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import com.github.refreshlayout.R;
-import com.github.refreshlayout.RefreshLayout;
+import com.caijia.refreshlayout.R;
+import com.caijia.refreshlayout.RefreshLayout;
 
 public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshLayout.RefreshBehavior {
-    private ImageView ivArrow;
 
-    private ImageView ivSuccess;
-
-    private TextView tvRefresh;
-
+    private ImageView arrowIv;
+    private ImageView successIv;
+    private TextView refreshTv;
     private ProgressBar progressBar;
-
     private Animation rotateUp;
-
     private Animation rotateDown;
-
     private boolean rotated = false;
 
     public ClassicRefreshHeaderView(Context context) {
@@ -42,18 +37,16 @@ public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshL
 
     public ClassicRefreshHeaderView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-
         inflate(context, R.layout.layout_irecyclerview_classic_refresh_header_view, this);
-
-        tvRefresh = (TextView) findViewById(R.id.tvRefresh);
-        ivArrow = (ImageView) findViewById(R.id.ivArrow);
-        ivSuccess = (ImageView) findViewById(R.id.ivSuccess);
+        refreshTv = (TextView) findViewById(R.id.refresh_tv);
+        arrowIv = (ImageView) findViewById(R.id.arrow_iv);
+        successIv = (ImageView) findViewById(R.id.success_iv);
         progressBar = (ProgressBar) findViewById(R.id.progressbar);
         rotateUp = AnimationUtils.loadAnimation(context, R.anim.rotate_up);
         rotateDown = AnimationUtils.loadAnimation(context, R.anim.rotate_down);
 
-        ivArrow.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_ATOP);
-        ivSuccess.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_ATOP);
+        arrowIv.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_ATOP);
+        successIv.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_ATOP);
         progressBar.getIndeterminateDrawable().setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_ATOP);
 
     }
@@ -65,22 +58,22 @@ public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshL
 
     @Override
     public void onMove(float moved, float headerViewHeight,int refreshDistance) {
-        ivArrow.setVisibility(VISIBLE);
+        arrowIv.setVisibility(VISIBLE);
         progressBar.setVisibility(GONE);
-        ivSuccess.setVisibility(GONE);
+        successIv.setVisibility(GONE);
         if (moved <= refreshDistance) {
             if (rotated) {
-                ivArrow.clearAnimation();
-                ivArrow.startAnimation(rotateDown);
+                arrowIv.clearAnimation();
+                arrowIv.startAnimation(rotateDown);
                 rotated = false;
             }
 
-            tvRefresh.setText(getString(R.string.pull_to_refresh));
+            refreshTv.setText(getString(R.string.pull_to_refresh));
         } else {
-            tvRefresh.setText(getString(R.string.release_to_refresh));
+            refreshTv.setText(getString(R.string.release_to_refresh));
             if (!rotated) {
-                ivArrow.clearAnimation();
-                ivArrow.startAnimation(rotateUp);
+                arrowIv.clearAnimation();
+                arrowIv.startAnimation(rotateUp);
                 rotated = true;
             }
         }
@@ -88,11 +81,11 @@ public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshL
 
     @Override
     public void onRefreshing() {
-        ivSuccess.setVisibility(GONE);
-        ivArrow.clearAnimation();
-        ivArrow.setVisibility(GONE);
+        successIv.setVisibility(GONE);
+        arrowIv.clearAnimation();
+        arrowIv.setVisibility(GONE);
         progressBar.setVisibility(VISIBLE);
-        tvRefresh.setText(getString(R.string.refreshing));
+        refreshTv.setText(getString(R.string.refreshing));
     }
 
     private String getString(@StringRes int stringResId) {
@@ -102,19 +95,19 @@ public class ClassicRefreshHeaderView extends RelativeLayout implements RefreshL
     @Override
     public void onRefreshComplete() {
         rotated = false;
-        ivSuccess.setVisibility(VISIBLE);
-        ivArrow.clearAnimation();
-        ivArrow.setVisibility(GONE);
+        successIv.setVisibility(VISIBLE);
+        arrowIv.clearAnimation();
+        arrowIv.setVisibility(GONE);
         progressBar.setVisibility(GONE);
-        tvRefresh.setText(getString(R.string.complete));
+        refreshTv.setText(getString(R.string.complete));
     }
 
     @Override
     public void onReset() {
         rotated = false;
-        ivSuccess.setVisibility(GONE);
-        ivArrow.clearAnimation();
-        ivArrow.setVisibility(GONE);
+        successIv.setVisibility(GONE);
+        arrowIv.clearAnimation();
+        arrowIv.setVisibility(GONE);
         progressBar.setVisibility(GONE);
     }
 

@@ -4,22 +4,22 @@
     android:layout_height="match_parent">
 
     <ImageView
-        android:id="@+id/ivArrow"
+        android:id="@+id/arrow_iv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerVertical="true"
         android:layout_marginRight="12dp"
-        android:layout_toLeftOf="@+id/tvRefresh"
+        android:layout_toLeftOf="@+id/refresh_tv"
         android:src="@drawable/pull_arrow" />
 
     <ImageView
-        android:id="@+id/ivSuccess"
+        android:id="@+id/success_iv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerVertical="true"
         android:layout_marginRight="12dp"
-        android:layout_toLeftOf="@+id/tvRefresh"
-        android:src="@drawable/qq_refresh_success" />
+        android:layout_toLeftOf="@+id/refresh_tv"
+        android:src="@drawable/refresh_success" />
 
     <ProgressBar
         style="@style/PullProgressBar"
@@ -28,10 +28,10 @@
         android:layout_height="16dp"
         android:layout_centerVertical="true"
         android:layout_marginRight="12dp"
-        android:layout_toLeftOf="@+id/tvRefresh" />
+        android:layout_toLeftOf="@+id/refresh_tv" />
 
     <TextView
-        android:id="@+id/tvRefresh"
+        android:id="@+id/refresh_tv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"

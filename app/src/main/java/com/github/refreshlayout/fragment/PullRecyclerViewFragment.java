@@ -11,7 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import com.github.refreshlayout.R;
-import com.github.refreshlayout.RefreshLayout;
+import com.caijia.refreshlayout.RefreshLayout;
 import com.github.refreshlayout.adapter.TestPullAdapter;
 
 /**

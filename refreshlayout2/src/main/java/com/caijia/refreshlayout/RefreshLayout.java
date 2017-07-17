@@ -1,4 +1,19 @@
-package com.github.refreshlayout;
+/*
+ * Copyright (C) 2017 caijia, caijia.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.caijia.refreshlayout;
 
 import android.animation.Animator;
 import android.animation.ValueAnimator;
@@ -281,7 +296,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     }
 
     private void animator(float start, float end, int delay) {
-        if (start <= end || start <= 0) {
+        if (start < 0) {
             overScrollTop = 0;
             scroll();
             computeState();
@@ -294,7 +309,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             return;
         }
 
-        int distance = (int) (start - end);
+        int distance = Math.abs(Math.round(start - end));
         int customDuration = 0;
         if (refreshBehavior != null) {
             customDuration = refreshBehavior.animationDuration(distance);
@@ -469,10 +484,19 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         return isBeginDragged;
     }
 
+    /**
+     * 拦截横向滚动,当嵌套viewpager时需要配置.*/
+
+    private boolean interceptHorizontalScroll;
+
+    public void setInterceptHorizontalScroll(boolean interceptHorizontalScroll) {
+        this.interceptHorizontalScroll = interceptHorizontalScroll;
+    }
+
     private void startDragging(float x, float y) {
         float diffX = x - initialMotionX;
         float diffY = y - initialMotionY;
-        if (!isBeginDragged && Math.abs(diffY) > Math.abs(diffX)) {
+        if (!isBeginDragged && (!interceptHorizontalScroll || Math.abs(diffY) > Math.abs(diffX))) {
             if (diffY > touchSlop) {
                 isBeginDragged = true;
                 initialMotionY += touchSlop;
@@ -640,7 +664,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
             stateMapAnimation();
 
         } else {
-            animator(0, refreshDistance, closeHeaderDelay);
+            animator(0, refreshDistance, 0);
         }
     }
 
@@ -926,9 +950,6 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
         /**
          * 当正在刷新时,向上fling,关闭头部后,target有时需要有fling行为
-         * <p>如果target 是{@link RecyclerView},{@link ScrollView},{@link NestedScrollView},
-         * {@link WebView},{@link AbsListView (api >= 21)}不需要实现fling方法</p>
-         *
          * @param target   需要fling的View
          * @param velocity 速度
          * @return true表示消费了velocity
