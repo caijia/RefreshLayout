@@ -9,7 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import com.github.refreshlayout.R;
-import com.github.refreshlayout.RefreshLayout;
+import com.caijia.refreshlayout.RefreshLayout;
 
 /**
  * Created by cai.jia on 2017/3/6 0006

@@ -14,7 +14,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.github.refreshlayout.R;
-import com.github.refreshlayout.RefreshLayout;
+import com.caijia.refreshlayout.RefreshLayout;
 import com.github.refreshlayout.adapter.TestListAdapter;
 
 import java.util.Locale;
