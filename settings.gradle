@@ -1,1 +1,1 @@
-include ':app', ':refreshlayout2'
+include ':app', ':refreshlayout'
