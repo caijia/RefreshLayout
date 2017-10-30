@@ -119,7 +119,6 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     private OnChildScrollUpCallback childScrollUpCallback;
     private FlingRunnable flingRunnable;
     private OnFlingTargetListener flingTargetListener;
-    private float beginDragDeltaY;
     private TargetFlingRunnable targetFlingRunnable;
 
     public RefreshLayout(Context context) {
@@ -484,29 +483,18 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
         return isBeginDragged;
     }
 
-    /**
-     * 拦截横向滚动,当嵌套viewpager时需要配置.*/
-
-    private boolean interceptHorizontalScroll;
-
-    public void setInterceptHorizontalScroll(boolean interceptHorizontalScroll) {
-        this.interceptHorizontalScroll = interceptHorizontalScroll;
-    }
-
     private void startDragging(float x, float y) {
         float diffX = x - initialMotionX;
         float diffY = y - initialMotionY;
-        if (!isBeginDragged && (!interceptHorizontalScroll || Math.abs(diffY) > Math.abs(diffX))) {
+        if (!isBeginDragged && Math.abs(diffY) > Math.abs(diffX)) {
             if (diffY > touchSlop) {
                 isBeginDragged = true;
                 initialMotionY += touchSlop;
-                beginDragDeltaY = diffY - touchSlop;
             }
 
             if (!refreshingPinHeader && overScrollTop > 0 && -diffY > touchSlop) {
                 isBeginDragged = true;
                 initialMotionY -= touchSlop;
-                beginDragDeltaY = diffY + touchSlop;
             }
         }
     }
@@ -544,15 +532,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
                 float y = ev.getY(index);
 
                 startDragging(x, y);
-
-                float deltaY;
-                if (beginDragDeltaY != 0) {
-                    deltaY = beginDragDeltaY;
-                    beginDragDeltaY = 0;
-
-                } else {
-                    deltaY = y - lastTouchY;
-                }
+                float deltaY = y - lastTouchY;
 
                 if (isBeginDragged) {
                     onActionMove(deltaY);
@@ -735,7 +715,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
     public void onStopNestedScroll(View target) {
         nestedScrollingParentHelper.onStopNestedScroll(target);
         //fling or scroll,当fling的时候,fling结束时才调用onActionUpOrCancel
-        if (mScroller.isFinished() && overScrollTop > 0) {
+        if (mScroller.isFinished() && overScrollTop > 0 && !isBeginDragged) {
             onActionUpOrCancel();
         }
         stopNestedScroll();
@@ -950,6 +930,7 @@ public class RefreshLayout extends FrameLayout implements NestedScrollingParent,
 
         /**
          * 当正在刷新时,向上fling,关闭头部后,target有时需要有fling行为
+         *
          * @param target   需要fling的View
          * @param velocity 速度
          * @return true表示消费了velocity
