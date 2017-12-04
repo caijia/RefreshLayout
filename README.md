@@ -130,3 +130,34 @@ boolean onLayoutChild(View headerView, View target)
 ```
 int animationDuration(@Px int distance)
 ```
+
+
+#代码调用
+1. 常规调用。初始化调用,在onRefresh()回调里面刷新
+```
+refreshLayout.setOnRefreshListener(this);
+```
+
+2. 刷新完成调用
+```
+refreshLayout.setRefreshing(false);
+```
+
+3. 自动刷新。不需要手指下拉触发刷新
+```
+refreshLayout.setRefreshing(false);
+```
+
+4. 自定义触发刷新的条件,默认是当内容控件达到顶部 ，并且向下拉时触发
+```
+setOnChildScrollUpCallback(OnChildScrollUpCallback callback)
+
+public interface OnChildScrollUpCallback {
+        boolean canChildScrollUp(RefreshLayout parent, View child);
+    }
+```
+
+
+####### 你可能会问，为什么没有加载更多。个人觉得加载更多应该是滚动控件的范畴。
+写这个控件的主要目的当然是自己项目使用，其次可以说是自定义控件的一个总结。其次是找了一些刷新，发现阅读起来还不如自己写一个。
+当然发现的一些问题。在这个项目里面也是重点解决。包括有些刷新滑动到顶部，如果不松手不能下拉。不能自定义头部的。不能自定义触发刷新的。不能嵌套ViewPager，刷新时不能滚动控件的。
