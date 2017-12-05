@@ -19,7 +19,7 @@ allprojects {
 ```
 compile 'com.caijia:refreshlayout:1.0.1'
 ```
-#Useage
+#Usage
 1. 布局文件
 ```
 <com.caijia.refreshlayout.RefreshLayout
