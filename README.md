@@ -36,6 +36,41 @@ compile 'com.caijia:refreshlayout:1.0.1'
     </com.caijia.refreshlayout.RefreshLayout>
 ```
 
+common_view_home_refresh_header.xml
+```
+<?xml version="1.0" encoding="utf-8"?>
+<com.caijia.refreshlayout.header.ClassicRefreshHeaderView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:orientation="vertical" />
+```
+
+#代码调用
+1. 常规调用。初始化调用,在onRefresh()回调里面刷新
+```
+refreshLayout.setOnRefreshListener(this);
+```
+
+2. 刷新完成调用
+```
+refreshLayout.setRefreshing(false);
+```
+
+3. 自动刷新。不需要手指下拉触发刷新
+```
+refreshLayout.setRefreshing(false);
+```
+
+4. 自定义触发刷新的条件,默认是当内容控件达到顶部 ，并且向下拉时触发
+```
+setOnChildScrollUpCallback(OnChildScrollUpCallback callback)
+
+public interface OnChildScrollUpCallback {
+        boolean canChildScrollUp(RefreshLayout parent, View child);
+    }
+```
+
+
 RefreshLayout自定义属性
 
 
@@ -132,30 +167,6 @@ int animationDuration(@Px int distance)
 ```
 
 
-#代码调用
-1. 常规调用。初始化调用,在onRefresh()回调里面刷新
-```
-refreshLayout.setOnRefreshListener(this);
-```
-
-2. 刷新完成调用
-```
-refreshLayout.setRefreshing(false);
-```
-
-3. 自动刷新。不需要手指下拉触发刷新
-```
-refreshLayout.setRefreshing(false);
-```
-
-4. 自定义触发刷新的条件,默认是当内容控件达到顶部 ，并且向下拉时触发
-```
-setOnChildScrollUpCallback(OnChildScrollUpCallback callback)
-
-public interface OnChildScrollUpCallback {
-        boolean canChildScrollUp(RefreshLayout parent, View child);
-    }
-```
 
 
 ####### 你可能会问，为什么没有加载更多。个人觉得加载更多应该是滚动控件的范畴。
